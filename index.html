@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0d1220">
+<meta name="description" content="ZIP Vault — your projects, safely organized. Stored locally on your device.">
+<title>ZIP Vault</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo">🗜️</span><b>ZIP Vault</b></div>
+  <div class="tools">
+    <button class="ib" data-act="search" aria-label="Search">🔍</button>
+    <button class="ib" data-act="go" data-id="settings" aria-label="Settings">⚙️</button>
+  </div>
+</header>
+<main id="app"></main>
+<nav class="nav" aria-label="Main">
+  <button data-act="go" data-id="home"><i>🏠</i>Home</button>
+  <button data-act="go" data-id="files"><i>🗂️</i>Files</button>
+  <button data-act="go" data-id="cats"><i>🏷️</i>Categories</button>
+  <button data-act="go" data-id="backup"><i>💾</i>Backup</button>
+  <button data-act="go" data-id="settings"><i>⚙️</i>Settings</button>
+</nav>
+<div id="sheet" class="ov" hidden></div>
+<div id="dlg" class="ov mid" hidden></div>
+<div id="toast" role="status"></div>
+<input type="file" id="pick" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+<input type="file" id="rest" accept=".zvault" hidden>
+<script src="app.js"></script>
+</body>
+</html>
