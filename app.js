@@ -20,6 +20,15 @@ const ICO = {
   home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
   files: '<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  upload: '<path d="M12 16V4M7 9l5-5 5 5M5 20h14"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+  heart: '<path d="M12 20s-8-4.7-8-10.5A4.5 4.5 0 0112 7a4.5 4.5 0 018 2.5C20 15.3 12 20 12 20z"/>',
+  music: '<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
+  book: '<path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2z"/><path d="M4 19V5M8 7h7"/>',
+  brief: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2M3 13h18"/>',
+  bolt: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',
   backup: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
   settings: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
@@ -56,20 +65,35 @@ const dbPut = r => tx('readwrite', s => s.put(r));
 const dbDel = id => tx('readwrite', s => s.delete(id));
 
 /* ===== state ===== */
-const DEF = [['Website', 'globe'], ['Games', 'pad'], ['Code', 'code'], ['Apk', 'pkg']];
-const CATS = () => DEF;
-const normCat = c => { const t = String(c || '').toLowerCase(); return /web|site/.test(t) ? 'Website' : /game/.test(t) ? 'Games' : /apk|app|android/.test(t) ? 'Apk' : 'Code'; };
-const catIcon = c => ico((DEF.find(x => x[0] === c) || DEF[2])[1], 20);
-const ensureCat = () => {};
+const DEF = [['Website', 'globe', 0], ['Games', 'pad', 1], ['Code', 'code', 2], ['Apk', 'pkg', 3]];
+const PAL = 8, PICK = ['files', 'globe', 'pad', 'code', 'pkg', 'star', 'heart', 'music', 'image', 'book', 'brief', 'bolt'];
+const loadCats = () => {
+  const v = LS.get('cats', null);
+  if (Array.isArray(v) && v.length && v.every(c => c && typeof c.n === 'string' && c.n.trim() && ICO[c.i])) return v.map(c => ({ n: c.n, i: c.i, p: (+c.p || 0) % PAL }));
+  return DEF.map(([n, i, p]) => ({ n, i, p }));
+};
+const saveCats = () => LS.set('cats', S.cats);
+const CATS = () => S.cats;
+const getCat = n => S.cats.find(c => c.n === n);
+const canon = n => S.cats.find(c => c.n.toLowerCase() === String(n ?? '').trim().toLowerCase())?.n;
+const hasCat = n => !!canon(n);
+const nextPal = () => { const u = new Set(S.cats.map(c => c.p)); for (let k = 0; k < PAL; k++) if (!u.has(k)) return k; return S.cats.length % PAL; };
+const ensureCat = (n, i = 'files', p) => { // returns the canonical category name, creating it if needed
+  n = String(n ?? '').trim().slice(0, 30); if (!n) return S.cats[0].n;
+  const ex = canon(n); if (ex) return ex;
+  S.cats.push({ n, i: ICO[i] ? i : 'files', p: Number.isInteger(p) ? ((p % PAL) + PAL) % PAL : nextPal() }); saveCats(); return n;
+};
+const catIcon = c => ico((getCat(c) || { i: 'files' }).i, 20);
+const cstyle = c => `style="--cc:var(--p${(getCat(c) || { p: 2 }).p})"`;
 const SORTS = {
   new: ['Recently added', (a, b) => b.added - a.added], old: ['Oldest', (a, b) => a.added - b.added],
   az: ['Name A–Z', (a, b) => a.name.localeCompare(b.name)], za: ['Name Z–A', (a, b) => b.name.localeCompare(a.name)],
   big: ['Largest', (a, b) => b.size - a.size], small: ['Smallest', (a, b) => a.size - b.size]
 };
-const S = { files: [], view: 'home', q: '', cat: LS.get('cat', 'all'), sort: LS.get('sort', 'new') };
+const S = { cats: loadCats(), files: [], view: 'home', q: '', cat: LS.get('cat', 'all'), sort: LS.get('sort', 'new') };
 if (!SORTS[S.sort]) S.sort = 'new';
-if (S.cat !== 'all' && !DEF.some(c => c[0] === S.cat)) S.cat = 'all';
-const load = async () => { S.files = await dbAll(); for (const f of S.files) { const c = normCat(f.category); if (c !== f.category) { f.category = c; try { await dbPut(f); } catch {} } } };
+if (S.cat !== 'all' && !hasCat(S.cat)) S.cat = 'all';
+const load = async () => { S.files = await dbAll(); for (const f of S.files) { const c = canon(f.category) || ensureCat(f.category); if (c !== f.category) { f.category = c; try { await dbPut(f); } catch {} } } };
 
 /* ===== search / filter ===== */
 const shown = () => {
@@ -95,7 +119,7 @@ async function startAdd(file) {
     const e = await navigator.storage?.estimate?.();
     if (e?.quota && file.size > e.quota - e.usage) return toast('This file is larger than the free space this browser allows.');
   } catch {}
-  form('new', { name: file.name, category: normCat(LS.get('defcat', LS.get('cat', 'Code'))) }, file);
+  form('new', { name: file.name, category: canon(LS.get('defcat', '')) || canon(S.cat) || S.cats[0].n }, file);
 }
 
 /* ===== backup / restore (.zvault = header + raw Blobs; no Base64, no big memory use) ===== */
@@ -103,7 +127,7 @@ function createBackup() {
   if (!S.files.length) return toast('Nothing to back up yet. Add a ZIP first.');
   try {
     const items = S.files.map(({ blob, ...m }) => ({ ...m, size: blob.size }));
-    const head = new TextEncoder().encode(JSON.stringify({ app: 'zipvault', v: 1, created: Date.now(), items }));
+    const head = new TextEncoder().encode(JSON.stringify({ app: 'zipvault', v: 1, created: Date.now(), cats: S.cats, items }));
     const len = new Uint8Array(4); new DataView(len.buffer).setUint32(0, head.length);
     const out = new Blob(['ZVLT1\n', len, head, ...S.files.map(f => f.blob)], { type: 'application/octet-stream' });
     saveBlob(out, `zipvault-backup-${new Date().toISOString().slice(0, 10)}.zvault`);
@@ -126,13 +150,13 @@ async function restore(file) {
     if (off > file.size) throw 0;
   } catch { return toast(bad); }
   if ((await choose('Restore this backup?', `It contains ${items.length} ZIP file(s). Nothing already in your vault is overwritten without asking.`, [['go', 'Restore', 'primary'], ['no', 'Cancel']])).k !== 'go') return;
+  if (Array.isArray(head.cats)) head.cats.forEach(c => { if (c && typeof c.n === 'string' && c.n.trim()) ensureCat(c.n, c.i, Number.isInteger(c.p) ? c.p : undefined); });
   let pol = null, added = 0, skipped = 0;
   try {
     for (const { m, start } of items) {
       const rec = { id: String(m.id || uid()), name: m.name, size: m.size, added: +m.added || Date.now(), modified: +m.modified || null,
-        category: normCat(m.category), desc: String(m.desc || ''), tags: Array.isArray(m.tags) ? m.tags.map(String) : [],
+        category: ensureCat(m.category), desc: String(m.desc || ''), tags: Array.isArray(m.tags) ? m.tags.map(String) : [],
         blob: file.slice(start, start + m.size, 'application/zip') };
-      ensureCat(rec.category);
       const ex = S.files.find(f => f.id === rec.id) || S.files.find(f => f.name === rec.name && f.size === rec.size);
       if (ex) {
         let k = pol;
@@ -159,22 +183,24 @@ async function storageInfo() {
 const catStat = c => { const l = S.files.filter(f => f.category === c); return { n: l.length, size: l.reduce((a, f) => a + f.size, 0) }; };
 const cnt = n => `${n} ${n === 1 ? 'file' : 'files'}`;
 const empty = (t = 'No ZIP files yet', p = 'Save your important projects here so you can find them whenever you need them.') => `<div class="empty">${ico('zip', 44)}<h3>${t}</h3><p>${p}</p>${S.files.length ? '' : '<button class="btn primary" data-act="add">Add your first ZIP</button>'}</div>`;
-const row = f => `<div class="it" data-cat="${esc(f.category)}" data-act="open" data-id="${f.id}"><span class="ico">${catIcon(f.category)}</span><div><h4>${esc(f.name)}</h4><p>${fmtSize(f.size)} · ${esc(f.category)} · ${fmtDate(f.added)}</p></div><button class="dl" data-act="dl" data-id="${f.id}" aria-label="Download ${esc(f.name)}">${ico('down', 22)}</button></div>`;
+const row = f => `<div class="it" ${cstyle(f.category)} data-act="open" data-id="${f.id}"><span class="ico">${catIcon(f.category)}</span><div><h4>${esc(f.name)}</h4><p>${fmtSize(f.size)} · ${esc(f.category)} · ${fmtDate(f.added)}</p></div><button class="dl" data-act="dl" data-id="${f.id}" aria-label="Download ${esc(f.name)}">${ico('down', 22)}</button></div>`;
 const listHTML = () => { if (!S.files.length) return empty(); const l = shown(); return l.length ? l.map(row).join('') : empty('No matches', 'Try a different word or category.'); };
 
+const catCard = c => { const st = catStat(c.n); return `<div class="cat" ${cstyle(c.n)} role="button" tabindex="0" data-act="cat" data-id="${esc(c.n)}"><span class="ico big">${ico(c.i, 28)}</span><span><b>${esc(c.n)}</b><small>${cnt(st.n)} · ${fmtSize(st.size)}</small></span><button class="dl" data-act="delcat" data-id="${esc(c.n)}" aria-label="Delete category ${esc(c.n)}">${ico('trash', 20)}</button></div>`; };
 const vHome = () => {
   const used = S.files.reduce((a, f) => a + f.size, 0), recent = [...S.files].sort((a, b) => b.added - a.added).slice(0, 5);
   return `<section class="hero"><p class="mut">${cnt(S.files.length)} · ${fmtSize(used)}</p><h1>Your vault</h1></section>
-<div>${DEF.map(([c, i]) => { const s = catStat(c); return `<button class="cat" data-cat="${c}" data-act="cat" data-id="${c}"><span class="ico big">${ico(i, 28)}</span><span><b>${c}</b><small>${cnt(s.n)} · ${fmtSize(s.size)}</small></span>${ico('chev', 20)}</button>`; }).join('')}</div>
+<div class="sh"><h2 class="sec">Categories</h2><button class="btn ghost sm addc" data-act="newcat">${ico('plus', 18)}Add</button></div>
+<div>${S.cats.map(catCard).join('')}</div>
 <h2 class="sec">Recent</h2><div>${recent.length ? recent.map(row).join('') : empty()}</div>
 <p class="note">${ico('lock', 16)}<span>Stored on this device only. Nothing is uploaded.</span></p>`;
 };
 const vFiles = () => `<div class="sbar">${ico('search', 20)}<input id="q" type="search" placeholder="Search files" value="${esc(S.q)}" autocomplete="off"></div>
-<div class="tabs">${[['all', 'All'], ...DEF.map(c => [c[0], c[0]])].map(([k, l]) => `<button class="${S.cat === k ? 'on' : ''}" data-act="cat" data-id="${k}">${l}</button>`).join('')}</div>
+<div class="tabs">${[['all', 'All'], ...S.cats.map(c => [c.n, c.n])].map(([k, l]) => `<button class="${S.cat === k ? 'on' : ''}" data-act="cat" data-id="${esc(k)}">${esc(l)}</button>`).join('')}<button class="plus" data-act="newcat" aria-label="New category">${ico('plus', 20)}</button></div>
 <div class="bar2"><span class="mut" id="cnt">${cnt(shown().length)}</span><select id="fsort" aria-label="Sort">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${v[0]}</option>`).join('')}</select></div>
 <div id="list">${listHTML()}</div>`;
-const vBackup = () => `<h2 class="sec">Backup</h2><p class="lead" style="padding-top:0">One backup file holds everything: all four categories with their names, descriptions, tags and dates.</p>
-<div>${DEF.map(([c, i]) => { const s = catStat(c); return `<div class="it" data-cat="${c}"><span class="ico">${ico(i)}</span><div><h4>${c}</h4><p>${cnt(s.n)} · ${fmtSize(s.size)}</p></div></div>`; }).join('')}</div>
+const vBackup = () => `<h2 class="sec">Backup</h2><p class="lead" style="padding-top:0">One backup file holds everything: your categories, plus every ZIP with its name, description, tags and dates.</p>
+<div>${S.cats.map(c => { const s = catStat(c.n); return `<div class="it" ${cstyle(c.n)}><span class="ico">${ico(c.i)}</span><div><h4>${esc(c.n)}</h4><p>${cnt(s.n)} · ${fmtSize(s.size)}</p></div></div>`; }).join('')}</div>
 <div class="pad"><button class="btn primary big" data-act="backup">Back up everything</button><button class="btn big" data-act="restore">Restore from backup</button></div>
 <p class="note">${ico('lock', 16)}<span>Saved as a .zvault file on your phone. When restoring, if a ZIP already exists you choose to keep, replace or keep both.</span></p>`;
 async function vSettings() {
@@ -187,17 +213,20 @@ ${e?.quota ? `<div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div><dl
   : `<dl class="kv"><dt>Vault ZIPs</dt><dd>${s.n} • ${fmtSize(s.used)}</dd></dl><p class="mut">Storage information unavailable</p>`}
 ${s.persisted === null ? '<p class="mut">Persistent storage isn’t supported here.</p>' : `<dl class="kv"><dt>Persistent storage</dt><dd>${s.persisted ? 'Granted' : 'Not granted'}</dd></dl>${s.persisted ? '' : '<button class="btn" data-act="persist">Request persistent storage</button>'}`}
 <p class="mut sm-t">Persistent storage can reduce the chance of the browser clearing your data automatically, but it doesn’t make files impossible to lose. Your files are stored locally in this browser. Clearing this site’s browser data can remove them. Keep regular backups for important files.</p></div>
-<div class="blk"><b>Vault</b><label>Default category<select id="defcat">${CATS().map(c => `<option ${normCat(LS.get('defcat', 'Code')) === c[0] ? 'selected' : ''}>${esc(c[0])}</option>`).join('')}</select></label>
+<div class="blk"><b>Vault</b><label>Default category<select id="defcat">${CATS().map(c => `<option value="${esc(c.n)}" ${(canon(LS.get('defcat', '')) || S.cats[0].n) === c.n ? 'selected' : ''}>${esc(c.n)}</option>`).join('')}</select></label>
 <label>Default sorting<select id="defsort">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}" ${S.sort === k ? 'selected' : ''}>${v[0]}</option>`).join('')}</select></label>
 </div>
-<div class="blk"><b>About</b><p>ZIP Vault • Version 2.0</p><p class="mut">Your files stay on your device. No servers, no analytics, no ads.</p></div>`;
+<div class="blk"><b>About</b><p>ZIP Vault • Version 2.1</p><p class="mut">Your files stay on your device. No servers, no analytics, no ads.</p></div>`;
 }
 
 /* ===== UI ===== */
 const refreshList = () => { const l = $('#list'); if (l) l.innerHTML = listHTML(); const c = $('#cnt'); if (c) c.textContent = cnt(shown().length); };
+let rt = 0;
 async function render() {
-  const m = $('#app'), v = S.view;
-  m.innerHTML = v === 'home' ? vHome() : v === 'files' ? vFiles() : v === 'backup' ? vBackup() : await vSettings();
+  const m = $('#app'), v = S.view, t = ++rt;
+  const html = v === 'home' ? vHome() : v === 'files' ? vFiles() : v === 'backup' ? vBackup() : await vSettings();
+  if (t !== rt) return; // a newer render started while this one was waiting
+  m.innerHTML = html;
   document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.id === v));
 }
 const go = v => { S.view = v; render(); scrollTo(0, 0); };
@@ -212,11 +241,12 @@ const choose = (t, m, btns, all) => new Promise(r => {
 
 /* add / edit / rename form */
 function form(mode, f, file) {
-  const cats = CATS().map(c => c[0]);
+  const cats = CATS().map(c => c.n);
   openSheet(`<h3>${mode === 'new' ? 'Add ZIP' : mode === 'rename' ? 'Rename' : 'Edit details'}</h3>
 ${file ? `<p class="mut">${esc(file.name)} • ${fmtSize(file.size)}<br>The vault keeps its own copy. Your original file is left untouched.</p>` : ''}
 <label>Name<input id="fn" value="${esc(f.name)}" maxlength="150"></label>
-${mode === 'rename' ? '' : `<label>Category<select id="fc">${cats.map(c => `<option ${c === f.category ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+${mode === 'rename' ? '' : `<label>Category<select id="fc">${cats.map(c => `<option value="${esc(c)}" ${c === f.category ? 'selected' : ''}>${esc(c)}</option>`).join('')}<option value="__new">＋ New category…</option></select></label>
+<input id="fnew" placeholder="New category name" maxlength="30" autocomplete="off" hidden>
 <label>Description<textarea id="fd" rows="3" maxlength="500">${esc(f.desc || '')}</textarea></label>
 <label>Tags (comma separated)<input id="ft" value="${esc((f.tags || []).join(', '))}"></label>`}
 <div class="bar ind" id="prog" hidden><i></i></div>
@@ -225,7 +255,7 @@ ${mode === 'rename' ? '' : `<label>Category<select id="fc">${cats.map(c => `<opt
   $('#fs').onclick = async () => {
     let name = cleanName($('#fn').value); if (!name) return toast('Enter a name for this ZIP.');
     let cat = f.category;
-    if (fc) { cat = fc.value === '__new' ? $('#fnew').value.trim() : fc.value; if (!cat) return toast('Enter a name for the new category.'); ensureCat(cat); }
+    if (fc) { cat = fc.value === '__new' ? $('#fnew').value.trim() : fc.value; if (!cat) return toast('Enter a name for the new category.'); if (cat.toLowerCase() === 'all') return toast('Please choose a different category name.'); cat = ensureCat(cat); }
     const rec = mode === 'new' ? { id: uid(), size: file.size, added: Date.now(), modified: file.lastModified || null, blob: file } : { ...f };
     rec.name = name; if (fc) { rec.category = cat; rec.desc = $('#fd').value.trim(); rec.tags = parseTags($('#ft').value); }
     const dup = S.files.find(x => x.id !== rec.id && x.name.toLowerCase() === name.toLowerCase());
@@ -238,7 +268,7 @@ ${mode === 'rename' ? '' : `<label>Category<select id="fc">${cats.map(c => `<opt
       await dbPut(rec); await load(); closeSheet(); render();
       toast(mode === 'new' ? 'ZIP saved to your vault' : 'Changes saved');
       if (mode === 'new' && navigator.storage?.persist) navigator.storage.persist().catch(() => {});
-    } catch (e) { console.error(e); $('#fs').disabled = false; $('#prog').hidden = true; $('#fs').textContent = 'Save'; toast(errMsg(e)); }
+    } catch (e) { console.error(e); $('#fs').disabled = false; $('#prog').hidden = true; $('#fs').textContent = mode === 'new' ? 'Save to Vault' : 'Save'; toast(errMsg(e)); }
   };
 }
 function detail(f) {
@@ -249,6 +279,7 @@ function detail(f) {
 <button class="btn danger" data-act="del" data-id="${f.id}">Delete</button><button class="btn ghost" data-act="close">Close</button></div>`);
 }
 const byId = id => S.files.find(f => f.id === id);
+let NC = { i: 'files', p: 0 };
 const ACT = {
   go, close: closeSheet, add: () => $('#pick').click(), backup: createBackup, restore: () => $('#rest').click(),
   search: () => { go('files'); setTimeout(() => $('#q')?.focus(), 50); },
@@ -261,16 +292,51 @@ const ACT = {
     try { await dbDel(id); await load(); closeSheet(); render(); toast('Deleted from your vault.'); } catch (e) { toast(errMsg(e)); }
   },
   cat: id => { S.cat = id; LS.set('cat', id); go('files'); },
-  newcat: () => openSheet(`<h3>New category</h3><label>Name<input id="nc" maxlength="30"></label><div class="row"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="savecat">Create</button></div>`),
-  savecat: () => { const n = $('#nc').value.trim(); if (!n) return toast('Enter a category name.'); ensureCat(n); closeSheet(); render(); toast('Category created.'); },
+  newcat: () => {
+    NC = { i: 'files', p: nextPal() };
+    openSheet(`<h3>New category</h3><label>Name<input id="nc" maxlength="30" autocomplete="off" placeholder="e.g. Music, Work, Photos"></label>
+<label>Icon</label><div class="pick" id="pi">${PICK.map(k => `<button type="button" class="${k === NC.i ? 'on' : ''}" data-act="pi" data-id="${k}" aria-label="Icon ${k}">${ico(k, 22)}</button>`).join('')}</div>
+<label>Colour</label><div class="pick sw" id="pc">${[...Array(PAL).keys()].map(k => `<button type="button" class="${k === NC.p ? 'on' : ''}" style="--cc:var(--p${k})" data-act="pcol" data-id="${k}" aria-label="Colour ${k + 1}"></button>`).join('')}</div>
+<div class="row"><button class="btn" data-act="close">Cancel</button><button class="btn primary" data-act="savecat">Create</button></div>`);
+    setTimeout(() => $('#nc')?.focus(), 60);
+  },
+  pi: id => { NC.i = id; document.querySelectorAll('#pi button').forEach(b => b.classList.toggle('on', b.dataset.id === id)); },
+  pcol: id => { NC.p = +id; document.querySelectorAll('#pc button').forEach(b => b.classList.toggle('on', b.dataset.id === id)); },
+  savecat: () => {
+    const n = ($('#nc').value || '').trim();
+    if (!n) return toast('Enter a category name.');
+    if (n.toLowerCase() === 'all' || n === '__new') return toast('Please choose a different category name.');
+    if (hasCat(n)) return toast('A category with that name already exists.');
+    ensureCat(n, NC.i, NC.p); closeSheet(); render(); toast(`Category “${n}” added.`);
+  },
+  delcat: async id => {
+    if (!getCat(id)) return;
+    if (S.cats.length < 2) return toast('You need to keep at least one category.');
+    const list = S.files.filter(f => f.category === id), dest = S.cats.find(c => c.n !== id).n;
+    const msg = list.length ? `Your ${cnt(list.length)} in this category will NOT be deleted. They will be moved to “${dest}”.` : 'This category is empty. It will be removed.';
+    if ((await choose(`Delete category “${id}”?`, msg, [['del', 'Delete category', 'danger'], ['no', 'Cancel']])).k !== 'del') return;
+    try {
+      for (const f of list) { f.category = dest; await dbPut(f); }
+      S.cats = S.cats.filter(c => c.n !== id); saveCats();
+      if (S.cat === id) { S.cat = 'all'; LS.set('cat', 'all'); }
+      if (LS.get('defcat', '') === id) LS.set('defcat', dest);
+      await load(); render(); toast(`Category “${id}” deleted.`);
+    } catch (e) { console.error(e); await load().catch(() => {}); render(); toast(errMsg(e)); }
+  },
   theme: id => { LS.set('theme', id); theme(); render(); },
   persist: async () => { try { toast(await navigator.storage.persist() ? 'Persistent storage granted.' : 'The browser declined persistent storage.'); } catch { toast('Persistent storage isn’t available.'); } render(); }
 };
 document.addEventListener('click', e => { const el = e.target.closest('[data-act]'); if (el && ACT[el.dataset.act]) ACT[el.dataset.act](el.dataset.id); });
+document.addEventListener('click', e => { if (e.target.id === 'sheet') closeSheet(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('#dlg').hidden && !$('#sheet').hidden) closeSheet();
+  if (e.key === 'Enter' && e.target.id === 'nc') ACT.savecat();
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('[role=button]')) { e.preventDefault(); e.target.click(); }
+});
 document.addEventListener('input', e => { if (e.target.id === 'q') { S.q = e.target.value; refreshList(); } });
 document.addEventListener('change', e => {
   const t = e.target;
-  if (t.id === 'fcat') { S.cat = t.value; LS.set('cat', S.cat); refreshList(); }
+  if (t.id === 'fc') { const n = $('#fnew'); n.hidden = t.value !== '__new'; if (!n.hidden) n.focus(); }
   if (t.id === 'fsort' || t.id === 'defsort') { S.sort = t.value; LS.set('sort', S.sort); if (S.view === 'files') refreshList(); }
   if (t.id === 'defcat') LS.set('defcat', t.value);
   if (t.id === 'pick') { const f = t.files[0]; t.value = ''; startAdd(f); }
