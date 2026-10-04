@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#06080d">
-<meta name="description" content="ZIP Vault — your projects, safely organized. Stored locally on your device.">
+<meta name="description" content="ZIP Vault — your zips, images, text and notes, safely organized. Stored locally on your device.">
 <title>ZIP Vault</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -20,14 +20,16 @@
 <nav class="nav" aria-label="Main">
   <button data-act="go" data-id="home"><span data-i="home"></span>Home</button>
   <button data-act="go" data-id="files"><span data-i="files"></span>Files</button>
-  <button class="add" data-act="add" aria-label="Upload ZIP"><span data-i="upload" data-s="26"></span></button>
+  <button class="add" data-act="add" aria-label="Add to vault"><span data-i="upload" data-s="26"></span></button>
   <button data-act="go" data-id="backup"><span data-i="backup"></span>Backup</button>
   <button data-act="go" data-id="settings"><span data-i="settings"></span>Settings</button>
 </nav>
 <div id="sheet" class="ov" hidden></div>
 <div id="dlg" class="ov mid" hidden></div>
 <div id="toast" role="status"></div>
-<input type="file" id="pick" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+<input type="file" id="pick_zip" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+<input type="file" id="pick_image" accept="image/*" multiple hidden>
+<input type="file" id="pick_text" accept=".txt,.md,.csv,.log,.json,text/*" multiple hidden>
 <input type="file" id="rest" accept=".zvault" hidden>
 <script src="app.js"></script>
 </body>
