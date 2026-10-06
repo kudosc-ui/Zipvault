@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#06080d">
-<meta name="description" content="ZIP Vault — your zips, images, text and notes, safely organized. Stored locally on your device.">
+<meta name="description" content="ZIP Vault — your projects, safely organized. Stored locally on your device.">
 <title>ZIP Vault</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -20,17 +20,16 @@
 <nav class="nav" aria-label="Main">
   <button data-act="go" data-id="home"><span data-i="home"></span>Home</button>
   <button data-act="go" data-id="files"><span data-i="files"></span>Files</button>
-  <button class="add" data-act="add" aria-label="Add to vault"><span data-i="upload" data-s="26"></span></button>
+  <button class="add" data-act="add" aria-label="Upload ZIP, code or prompt" aria-haspopup="dialog"><svg class="up" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="cl" d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><g class="ar"><path d="M12 13v8"/><path d="m8 17 4-4 4 4"/></g></svg></button>
   <button data-act="go" data-id="backup"><span data-i="backup"></span>Backup</button>
   <button data-act="go" data-id="settings"><span data-i="settings"></span>Settings</button>
 </nav>
 <div id="sheet" class="ov" hidden></div>
 <div id="dlg" class="ov mid" hidden></div>
 <div id="toast" role="status"></div>
-<input type="file" id="pick_zip" accept=".zip,application/zip,application/x-zip-compressed" hidden>
-<input type="file" id="pick_image" accept="image/*" multiple hidden>
-<input type="file" id="pick_text" accept=".txt,.md,.csv,.log,.json,text/*" multiple hidden>
+<input type="file" id="pick" accept=".zip,application/zip,application/x-zip-compressed" hidden>
 <input type="file" id="rest" accept=".zvault" hidden>
+<input type="file" id="cfile" hidden>
 <script src="app.js"></script>
 </body>
 </html>
